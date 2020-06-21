@@ -1,5 +1,50 @@
-# Check that require statements are in place
-
+# Check that packagesare checked for with require
+# What libraries do we need?
 library(tidyverse)
+#library(stringr)
+library(corrplot)
+library(caret)
+
+#We are using the Wine Data set
+# Source:
+#   
+#   Original Owners:
+#   
+#   Forina, M. et al, PARVUS -
+#   An Extendible Package for Data Exploration, Classification and Correlation.
+# Institute of Pharmaceutical and Food Analysis and Technologies, Via Brigata Salerno,
+# 16147 Genoa, Italy.
+# 
+# Donor:
+#   
+#   Stefan Aeberhard, email: stefan '@' coral.cs.jcu.edu.au
+
+
+
+
+# get and load the data from the web...
+# skip if already existing?
+
+wine_data_url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"
+wine_names_url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.names"
+download.file(wine_data_url, ".\\wine.data")
+download.file(wine_names_url, ".\\wine.names")
+
+#Creating a data frame from wine.data
+wines <- read.csv(".\\wine.data", header=FALSE, sep=",")
+
+#Adding column names - for the ease of life, this is done manually
+colnames(wines) <- c("Winery", "Alcohol", "Malic acid",
+                     "Ash", "Alcalinity of ash", "Magnesium",
+                     "Total phenols", "Flavanoids",
+                     "Nonflavanoid phenols", "Proanthocyanins",
+                     "Color intensity", "Hue",
+                     "OD280/OD315 of diluted wines", "Proline")
+
+features <- wines %>% subset(select=-Winery)
+corrplot(cor(wines %>% subset(select=-Winery)))
+
+model_knn <-  train(Winery ~ ., method="knn", data=wines)
+
 
 
