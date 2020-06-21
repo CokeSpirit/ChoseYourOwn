@@ -6,6 +6,20 @@ library(corrplot)
 library(caret)
 
 #We are using the Wine Data set
+# Why? I like wine, I live close to a wine region, and I am a chemist, so at least some of the molecules/names ring a bell
+
+#what can we do with it? Examine
+# Completeness
+# Min-Max
+# Histograms of the data
+#correlation matrix
+#dist matrix?
+#knn
+
+
+
+
+
 # Source:
 #   
 #   Original Owners:
