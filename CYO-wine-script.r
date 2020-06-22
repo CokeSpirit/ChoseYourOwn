@@ -10,13 +10,19 @@ library(caret)
 
 #what can we do with it? Examine
 # Completeness
+# tidy? no N/A, 
 # Min-Max
 # Histograms of the data
 #correlation matrix
 #dist matrix?
 #knn
 
+#Webpage
+#https://archive.ics.uci.edu/ml/index.php
 
+
+# Weblink
+#https://archive.ics.uci.edu/ml/datasets/wine
 
 
 
@@ -41,11 +47,11 @@ library(caret)
 
 wine_data_url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"
 wine_names_url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.names"
-download.file(wine_data_url, ".\\wine.data")
-download.file(wine_names_url, ".\\wine.names")
+download.file(wine_data_url, ".\\wine-data.csv")
+download.file(wine_names_url, ".\\wine-names.txt")
 
 #Creating a data frame from wine.data
-wines <- read.csv(".\\wine.data", header=FALSE, sep=",")
+wines <- read.csv(".\\wine-data.csv", header=FALSE, sep=",")
 
 #Adding column names - for the ease of life, this is done manually
 colnames(wines) <- c("Winery", "Alcohol", "Malic acid",

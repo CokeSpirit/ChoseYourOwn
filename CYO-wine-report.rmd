@@ -1,0 +1,255 @@
+---
+title: "Choose Your Own! Wine"
+author: "Christian Mast"
+output:
+  pdf_document: default
+  pdf: default
+toc: yes
+toc_depth: 2
+---
+
+\newpage
+# Overview
+
+This is the final report on my "Chose Your Own!" data science project. Based on the briefing, a dataset named "[Wine](https://archive.ics.uci.edu/ml/datasets/Wine)" was found and chosen from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/index.php).  
+
+During this project, the following steps have been taken:  
+
+*   Download the data file from the webpage mentioned above and transform it into a workable data frame
+
+*   Explore the data, checking for missing values, NAs, inconsistencies
+
+*   Visualization of the dataset - histograms of the different variables and a correlation plot
+
+*   Developing and testing of models to predict the winery from the chemical analysis - applying several techniques learned in the course and from the internet
+
+At the end, the model was able to predict the winery with an accuracy of XYZ%.  
+
+Furthermore, an outlook on potential further improvements is given.
+
+
+# The dataset "Wine"
+
+## Choosing a dataset
+
+Why "Wine"? I was looking for a tidy dataset that I could easily understand in terms of content and topic - as some expertise usually helps to better understand information. The relatively small data set should also allow to run different methods without running into speed or memory issues on my PC. The link to the UCI page was given with the edx briefing.  
+
+As a chemist I understand the background of the described data, and as a person living in a wine region I am sufficiently familiar with the type of products described. The fact of having only 48h from briefing to due date of this project might have triggered a fast decision as well. 
+
+Source of the data:
+
+Original Owners:  
+*Forina, M. et al, PARVUS -*
+*An Extendible Package for Data Exploration, Classification and Correlation.*
+*Institute of Pharmaceutical and Food Analysis and Technologies, Via Brigata Salerno, 16147 Genoa, Italy*
+
+Donor:  
+*Stefan Aeberhard, email: stefan '@' coral.cs.jcu.edu.au*
+
+
+```{r Preparing all libraries, message=FALSE, warning=FALSE, include=FALSE}
+# Installing packages if required
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(ggplot2)) install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require(corrplot)) install.packages("corrplot", repos = "http://cran.us.r-project.org")
+if(!require(rpart)) install.packages("rpart", repos = "http://cran.us.r-project.org")
+
+```
+
+## Downloading the data
+
+The data is provided as a simple csv file using comma as separators. Importing it using read.csv() yields a data frame. Columns where named according to the information of the wine.name file, with the longest name being shortened to get visually more pleasant diagrams.  
+
+```{r Downloading the Data and forming a dataframe, echo=TRUE, message=FALSE, warning=FALSE}
+# Getting the data
+# Define the urls
+wine_data_url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"
+wine_names_url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.names"
+
+#Download and rename files
+download.file(wine_data_url, ".\\wine-data.csv")
+download.file(wine_names_url, ".\\wine-names.txt")
+
+#Creating a data frame from wine-data.csv
+wines <- read.csv(".\\wine-data.csv", header=FALSE, sep=",")
+
+#Adding column names - for the ease of life, this is done manually
+#"OD280/OD315 of diluted wines" was shortened to OD280.OD315
+#"Nonflavanoid phenols" was shortened to Nonflav. phenols
+#Slashes and spaces were removed to make rpart happy - thx to Stackoverflow!
+colnames(wines) <- c("Winery", "Alcohol", "Malic_acid",
+                     "Ash", "Alcalinity_of_ash", "Magnesium",
+                     "Total_phenols", "Flavanoids",
+                     "Nonflav._phenols", "Proanthocyanins",
+                     "Color_intensity", "Hue",
+                     "OD280.OD315", "Proline")
+
+```
+
+
+# Exploring and analyzing the data
+
+## General structure
+
+The file size of only 10.7kB already indicates that this data set is not very large. The function head() gives a good first impression:
+
+```{r Head wines, echo=FALSE}
+#Show the first 6 rows of the data frame
+head(wines)
+```
+
+The data frame has 178 rows and 14 columns. The basic structure is tidy, as each observation is a row and each variable is a column. There are no zeros, empty cells or N/A's, and there are also no negative values. The first column "Winery" is of type int, but is actually categorical - describing which of the three participating wineries made that particular wine. This is also the prediction to make later on:  
+
+*Can we predict who made a wine if we know the results from the lab analysis?*
+
+With the summary() function we can get a good first impression on the range of values for each variable:
+
+```{r Summary wines, echo=FALSE, message=FALSE, warning=FALSE}
+#Show Min, 1st Quartile, Median, Mean, 3rd quartile and max of wines
+summary(wines)
+```
+
+The larger difference between Median and Mean for some variables (e.g. Proline) already indicates that the distribution of values for each variable are not necessarily normal. The variables "Magnesium" and "Proline" are have higher values than the others.
+\newpage
+
+## Visualizations
+
+Histograms are a good tool to get an overview about the distribution of data - visualizations are often much easier to understand than numbers.
+
+```{r Histogram grid, echo=FALSE, message=FALSE, warning=FALSE}
+# Create a grid of histogramms
+gather(wines, variable, value) %>% 
+  ggplot (aes(value)) +
+  geom_histogram(bins=18)+
+  facet_wrap(~variable, ncol=4, scales="free")+
+  ggtitle("Histograms of variables in 'wines' data frame")+
+  xlab("Values")+
+  ylab("Count")
+```
+As we can easily see, "Winery" is indeed categorical and not continuous. The other values show all kind of distributions, being it normal, skewed or bimodal. 
+
+\newpage
+
+How do these variables correlate with each other? To get a quick overview, corrplot() is used:
+
+```{r Corrplot, echo=FALSE, message=FALSE, warning=FALSE}
+#Removing winery, then calling corrplot()
+wines %>% subset(select=-Winery) %>% cor(.) %>% corrplot(tl.col="black", tl.cex=0.7, number.cex=0.6, title="Correlation Plot", type="lower", addCoef.col="black",mar=c(0,0,1,0))
+```
+
+The plot shows nicely that some values are not correlating much with the others, e.g. Ash and Magnesium. Some correlations are actually expected, e.g. the rather high correlation of Alcohol and Proline - as both indicate high ripeness of the grapes due to a lot of sun.  
+
+\newpage
+# Modelling
+
+## Processing
+
+In order to use the data in the dataframe for methods like knn, we will scale it. After that operation, 
+
+```{r Scale wines, echo=TRUE}
+#scaling wines, then rebuilding the winery column
+scaled_wines <- as.data.frame(scale(wines))
+scaled_wines$Winery <- as.factor(wines$Winery)
+```
+
+We will then create a test and a training set:
+```{r Create Train & Test Set, echo=TRUE, message=FALSE, warning=FALSE}
+# Set a seed to get reproducible train & test sets
+set.seed(1, sample.kind = "Rounding")
+index <- createDataPartition(scaled_wines$Winery, p = 0.25, list = FALSE)
+train_set <- scaled_wines[-index, ]
+test_set <- scaled_wines[+index, ]
+```
+
+Now we can start training models!
+\newpage
+
+## Training
+
+### Training a knn model
+
+Its time to set a first benchmark - a basic knn model is trained and the resulting outcome is used to make predictions on the test set.
+
+```{r Train knn, echo=FALSE}
+# Train a knn model
+fit_knn <- train(Winery ~.,
+                   method="knn",
+                   tuneGrid = data.frame(k=seq(3,49,2)),
+                   data = train_set)
+
+# Output the fit results
+fit_knn
+
+# Plot the fit results to show the best k
+plot(fit_knn)
+
+# Create a prediction, calculate the confusion matrix and print the accuracy
+prediction_knn <- predict(fit_knn, test_set)
+cm_knn <- confusionMatrix(prediction_knn, test_set$Winery)
+cat("Accuracy of the knn model:", cm_knn$overall["Accuracy"])
+
+```
+
+The knn model is already very good - depending on the seed, an accuracy between 0.95 and 1 (!) is achieved. Predictions cannot get much better. Most interesting, the best value for k differs quite a lot - sometimes its 3, sometimes 29. That is the reason the tunegrid for k has been set to a rather broad range, which seems counterintuitive - after all the training set has only 133 entries, so looking at the 49 nearest ones is already looking at more than a third of the total population.
+
+\newpage
+
+### Training a classification tree
+
+A classification tree depends on rather simple decisions, leading along a branched structure to come to the classification result. The package "rpart" has been used to optimize such a classification tree.
+
+
+```{r Classification Tree, echo=FALSE, message=FALSE, warning=FALSE}
+# Train a rf model
+fit_rpart <- train(Winery ~.,
+                   method="rpart",
+                   tuneGrid = data.frame(cp = seq(0.0, 0.05, len = 16)),
+                   data = train_set)
+
+# Output the fit results
+fit_rpart
+
+# Plot the fit results to show the best k
+plot(fit_rpart)
+
+# Create a prediction, calculate the confusion matrix and print the accuracy
+prediction_rpart <- predict(fit_rpart, test_set)
+cm_rpart <- confusionMatrix(prediction_rpart, test_set$Winery)
+cat("Accuracy of the rpart model:", cm_rpart$overall["Accuracy"])
+
+```
+
+```{r}
+plot(fit_rpart$finalModel, margin = 0.1, main="Classification tree")
+text(fit_rpart$finalModel, cex = 0.75, pos=3, offset=0)
+```
+
+The resulting classification tree is surprisingly simple and based on only three predictors - color intensity, as well as flavanoids and proline concentrations/amounts. Especially the color intensity can be easily modified with wines - so this does not look like the most stable model to roll out to include further manufactures.
+
+\newpage
+### Random forests
+
+The logical consequence of using a classification tree and the package rpart is to have a look at a random forest method. In this case, the method Rborist is used.
+
+```{r}
+# Train a rborist model
+fit_rb <- train(Winery ~.,
+                   method="Rborist",
+                   tuneGrid = data.frame(predFixed=2, minNode=seq(3,9,1)),
+                   data = train_set)
+
+# Output the fit results
+fit_rb
+
+# Plot the fit results to show the best k
+plot(fit_rb)
+
+# Create a prediction, calculate the confusion matrix and print the accuracy
+prediction_rb <- predict(fit_rb, test_set)
+cm_rb <- confusionMatrix(prediction_rb, test_set$Winery)
+cat("Accuracy of the Rborist model:", cm_rb$overall["Accuracy"])
+
+```
+
