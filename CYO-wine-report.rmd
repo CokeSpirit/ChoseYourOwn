@@ -231,7 +231,7 @@ The resulting classification tree is surprisingly simple and based on only three
 \newpage
 ### Random forests
 
-The logical consequence of using a classification tree and the package rpart is to have a look at a random forest method. In this case, the method Rborist is used.
+The logical consequence of using a classification tree and the package rpart is to have a look at a random forest method. In this case, the method Rborist is used, with the number of trees limited to 100, as resources and observations are limited.
 
 ```{r}
 # Train a rborist model
