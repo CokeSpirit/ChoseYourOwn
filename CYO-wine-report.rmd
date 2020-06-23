@@ -5,6 +5,7 @@ output:
   pdf_document: default
   pdf: default
 toc: yes
+number_sections: true
 toc_depth: 2
 ---
 
@@ -54,7 +55,10 @@ if(!require(ggplot2)) install.packages("ggplot2", repos = "http://cran.us.r-proj
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
 if(!require(corrplot)) install.packages("corrplot", repos = "http://cran.us.r-project.org")
+if(!require(randomForest)) install.packages("randomForest", repos = "http://cran.us.r-project.org")
 if(!require(rpart)) install.packages("rpart", repos = "http://cran.us.r-project.org")
+if(!require(Rborist)) install.packages("Rborist", repos = "http://cran.us.r-project.org")
+if(!require(kernlab)) install.packages("kernlab", repos = "http://cran.us.r-project.org")
 
 ```
 
@@ -144,8 +148,7 @@ The plot shows nicely that some values are not correlating much with the others,
 \newpage
 # Modelling
 
-## Processing
-
+## Preprocessing
 In order to use the data in the dataframe for methods like knn, we will scale it. After that operation, 
 
 ```{r Scale wines, echo=TRUE}
@@ -154,11 +157,11 @@ scaled_wines <- as.data.frame(scale(wines))
 scaled_wines$Winery <- as.factor(wines$Winery)
 ```
 
-We will then create a test and a training set:
+We will then create a test and a training set, using 50% of the data for training and 50% for testing:
 ```{r Create Train & Test Set, echo=TRUE, message=FALSE, warning=FALSE}
 # Set a seed to get reproducible train & test sets
-set.seed(1, sample.kind = "Rounding")
-index <- createDataPartition(scaled_wines$Winery, p = 0.25, list = FALSE)
+set.seed(101, sample.kind = "Rounding")
+index <- createDataPartition(scaled_wines$Winery, p = 0.5, list = FALSE)
 train_set <- scaled_wines[-index, ]
 test_set <- scaled_wines[+index, ]
 ```
@@ -168,7 +171,7 @@ Now we can start training models!
 
 ## Training
 
-### Training a knn model
+### KNN
 
 Its time to set a first benchmark - a basic knn model is trained and the resulting outcome is used to make predictions on the test set.
 
@@ -176,7 +179,7 @@ Its time to set a first benchmark - a basic knn model is trained and the resulti
 # Train a knn model
 fit_knn <- train(Winery ~.,
                    method="knn",
-                   tuneGrid = data.frame(k=seq(3,49,2)),
+                   tuneGrid = data.frame(k=seq(3,31,2)),
                    data = train_set)
 
 # Output the fit results
@@ -192,11 +195,11 @@ cat("Accuracy of the knn model:", cm_knn$overall["Accuracy"])
 
 ```
 
-The knn model is already very good - depending on the seed, an accuracy between 0.95 and 1 (!) is achieved. Predictions cannot get much better. Most interesting, the best value for k differs quite a lot - sometimes its 3, sometimes 29. That is the reason the tunegrid for k has been set to a rather broad range, which seems counterintuitive - after all the training set has only 133 entries, so looking at the 49 nearest ones is already looking at more than a third of the total population.
+The knn model is already very good - an accuracy of `r cm_knn$overall["Accuracy"]` is achieved. This is quite a good start and might be difficult to improve.
 
 \newpage
 
-### Training a classification tree
+### Classification Tree
 
 A classification tree depends on rather simple decisions, leading along a branched structure to come to the classification result. The package "rpart" has been used to optimize such a classification tree.
 
@@ -221,19 +224,28 @@ cat("Accuracy of the rpart model:", cm_rpart$overall["Accuracy"])
 
 ```
 
-```{r}
+How does the resulting tree look like?  
+
+```{r Display the classification tree, echo=FALSE}
 plot(fit_rpart$finalModel, margin = 0.1, main="Classification tree")
 text(fit_rpart$finalModel, cex = 0.75, pos=3, offset=0)
 ```
 
-The resulting classification tree is surprisingly simple and based on only three predictors - color intensity, as well as flavanoids and proline concentrations/amounts. Especially the color intensity can be easily modified with wines - so this does not look like the most stable model to roll out to include further manufactures.
+The resulting classification tree is surprisingly simple and based on only two predictors - Proline and the OD280/OD315 on diluted wines. However, the accuracy of `r cm_rpart$overall["Accuracy"]` is much worse than the results from the knn approach.  
+
 
 \newpage
 ### Random forests
 
-The logical consequence of using a classification tree and the package rpart is to have a look at a random forest method. In this case, the method Rborist is used, with the number of trees limited to 100, as resources and observations are limited.
+The logical consequence of using a classification tree and the package rpart is to have a look at a random forest method. A quick experiment with the randomForest function shows that 100 trees are enough to deliver a constant error.  
+```{r RandomForest on Training Set, echo=TRUE}
+fit_rf <- randomForest(Winery~., data = train_set) 
+plot(fit_rf, main="Error of randomForest vs number of trees")
+```
 
-```{r}
+For the random forest model, the method Rborist is used, with the number of trees limited to 100 - however, the speed of the calculation is still reasonable.
+
+```{r Rborist random forest, echo=FALSE}
 # Train a rborist model
 fit_rb <- train(Winery ~.,
                 method="Rborist",
@@ -253,4 +265,49 @@ cm_rb <- confusionMatrix(prediction_rb, test_set$Winery)
 cat("Accuracy of the Rborist model:", cm_rb$overall["Accuracy"])
 
 ```
+The approach using Rborist provided an accuracy of `r cm_rb$overall["Accuracy"]`, the best so far.
+
+\newpage
+## Support Vector Machine
+
+The train function in the caret package provides lots of different machine learning algorithms. By simply changing the name of the applied method, hundreds of algorithm can be tested despite a lack of deeper understanding. So this method has been chosen as it was described for classification tasks and as it worked well right out of the box.
+
+```{r}
+# Train a "Support Vector Machine with linear Kernel" model
+fit_svml <- train(Winery ~.,
+                method="svmLinear",
+                tuneGrid = expand.grid(C = c(0.001, 0.01, 0.1, 1, 10)),
+                data = train_set)
+
+# Output the fit results
+fit_svml
+
+# Create a prediction, calculate the confusion matrix and print the accuracy
+prediction_svml <- predict(fit_svml, test_set)
+cm_svml <- confusionMatrix(prediction_svml, test_set$Winery)
+cat("Accuracy of the svmLinear model:", cm_svml$overall["Accuracy"])
+
+```
+With an accuracy of `r cm_svml$overall["Accuracy"]`, we found another good prediction result.
+
+\newpage
+
+# Forming an Ensemble
+
+We can now compare the predictions of the three best models (knn, Rborist and svmLinear) and base our prediction on the rounded average of all three to see if there is an improvement.
+
+```{r Form an ensemble based on average predictions, echo=TRUE}
+#Convert predictions to numbers, calculate the average
+prediction_ensemble <- as.factor(round((
+    as.numeric(prediction_knn)+
+    as.numeric(prediction_rb)+
+    as.numeric(prediction_svml))/3))
+
+# Calculate the confusion matrix and print the accuracy
+cm_ensemble <- confusionMatrix(prediction_ensemble, test_set$Winery)
+cat("Accuracy of the Ensemble:", cm_ensemble$overall["Accuracy"])
+```
+With an ensemble accuracy of `r cm_ensemble$overall["Accuracy"]`, the ensemble is delivering the same accuracy as the model based on the Rborist method. So at least in this case, there is no improvement by combining the predictions
+
+
 
