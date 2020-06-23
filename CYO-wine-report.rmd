@@ -1,6 +1,7 @@
 ---
 title: "Choose Your Own! - Dataset: Wine"
 author: "Christian Mast"
+date: 23.6.2020
 output:
   pdf_document: default
   pdf: default
@@ -12,7 +13,7 @@ toc_depth: 2
 \newpage
 # Overview
 
-This is the final report on my "Chose Your Own!" data science project. Based on the briefing, a dataset named "[Wine](https://archive.ics.uci.edu/ml/datasets/Wine)" was found and chosen from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/index.php).  
+This is the final report on my "Choose Your Own!" data science Capstone project. Based on the briefing, a dataset named "[Wine](https://archive.ics.uci.edu/ml/datasets/Wine)" was found and chosen from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/index.php).  
 
 During this project, the following steps have been taken:  
 
@@ -147,7 +148,14 @@ How do these variables correlate with each other? To get a quick overview, corrp
 
 ```{r Corrplot, echo=FALSE, message=FALSE, warning=FALSE}
 #Removing winery, then calling corrplot()
-wines %>% subset(select=-Winery) %>% cor(.) %>% corrplot(tl.col="black", tl.cex=0.7, number.cex=0.6, title="Correlation Plot", type="lower", addCoef.col="black",mar=c(0,0,1,0))
+wines %>% subset(select=-Winery) %>% 
+          cor(.) %>% corrplot(tl.col="black",
+                              tl.cex=0.7,
+                              number.cex=0.6,
+                              title="Correlation Plot",
+                              type="lower",
+                              addCoef.col="black",
+                              mar=c(0,0,1,0))
 ```
 
 The plot shows nicely that some values are not correlating much with the others, e.g. Ash and Magnesium. Some correlations are actually expected, e.g. the rather high correlation of Alcohol and Proline - as both indicate high ripeness of the grapes due to a lot of sun.  
@@ -234,6 +242,7 @@ cat("Accuracy of the rpart model:", cm_rpart$overall["Accuracy"])
 How does the resulting classification tree look like?  
 
 ```{r Display the classification tree, echo=FALSE}
+#create a plot of the classification tree and add text labels
 plot(fit_rpart$finalModel, margin = 0.1, main="Classification tree")
 text(fit_rpart$finalModel, cex = 0.75, pos=3, offset=0)
 ```
@@ -246,6 +255,7 @@ The resulting classification tree is surprisingly simple and based on only two p
 
 The logical consequence of using a classification tree and the package rpart is to have a look at a random forest method. A quick experiment with the randomForest function shows that 100 trees are enough to deliver a constant error.  
 ```{r RandomForest on Training Set, echo=TRUE}
+#Create a randomForest fit and plot it to show the number of trees needed later on
 fit_rf <- randomForest(Winery~., data = train_set) 
 plot(fit_rf, main="Error of randomForest vs number of trees")
 ```
@@ -279,7 +289,7 @@ The approach using Rborist provided an accuracy of `r cm_rb$overall["Accuracy"]`
 
 The train function in the caret package provides lots of different machine learning algorithms. By simply changing the name of the applied method, hundreds of algorithm can be tested despite a lack of deeper understanding. So this method has been chosen as it was described for classification tasks and as it worked well right out of the box.
 
-```{r}
+```{r Support Vector Machine svmLinear}
 # Train a "Support Vector Machine with linear Kernel" model
 fit_svml <- train(Winery ~.,
                 method="svmLinear",
