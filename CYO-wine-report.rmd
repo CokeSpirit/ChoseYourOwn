@@ -1,5 +1,5 @@
 ---
-title: "Choose Your Own! Wine"
+title: "Choose Your Own! - Dataset: Wine"
 author: "Christian Mast"
 output:
   pdf_document: default
@@ -18,13 +18,19 @@ During this project, the following steps have been taken:
 
 *   Download the data file from the webpage mentioned above and transform it into a workable data frame
 
-*   Explore the data, checking for missing values, NAs, inconsistencies
+*   Explore the data, checking for missing values, NAs or inconsistencies
 
 *   Visualization of the dataset - histograms of the different variables and a correlation plot
 
-*   Developing and testing of models to predict the winery from the chemical analysis - applying several techniques learned in the course and from the internet
+*   Defining the challenge - can we predict the winery based on the measurements?
 
-At the end, the model was able to predict the winery with an accuracy of XYZ%.  
+*   Developing and testing of models to predict the winery from the chemical analysis - applying several models learned during the data science course and from the internet.
+
+*   Forming an ensemple prediction based on the best three models found
+
+*   Giving a summary of findings
+
+At the end, the model was able to predict the winery with an accuracy of 98.9%.  
 
 Furthermore, an outlook on potential further improvements is given.
 
@@ -82,7 +88,7 @@ wines <- read.csv(".\\wine-data.csv", header=FALSE, sep=",")
 #Adding column names - for the ease of life, this is done manually
 #"OD280/OD315 of diluted wines" was shortened to OD280.OD315
 #"Nonflavanoid phenols" was shortened to Nonflav. phenols
-#Slashes and spaces were removed to make rpart happy - thx to Stackoverflow!
+#Slashes and spaces were removed to make rpart happy - thx to Stackoverflow for the tip!
 colnames(wines) <- c("Winery", "Alcohol", "Malic_acid",
                      "Ash", "Alcalinity_of_ash", "Magnesium",
                      "Total_phenols", "Flavanoids",
@@ -104,10 +110,11 @@ The file size of only 10.7kB already indicates that this data set is not very la
 head(wines)
 ```
 
-The data frame has 178 rows and 14 columns. The basic structure is tidy, as each observation is a row and each variable is a column. There are no zeros, empty cells or N/A's, and there are also no negative values. The first column "Winery" is of type int, but is actually categorical - describing which of the three participating wineries made that particular wine. This is also the prediction to make later on:  
+The data frame has 178 rows and 14 columns. The basic data structure is tidy, so each observation is a row and each variable is a column. There are no zeros, empty cells or N/A's, and there are also no negative values. The first column "Winery" is of type int, but is actually categorical - describing which of the three participating wineries made that particular wine. This is also the prediction to make later on:  
 
 *Can we predict who made a wine if we know the results from the lab analysis?*
 
+\newpage
 With the summary() function we can get a good first impression on the range of values for each variable:
 
 ```{r Summary wines, echo=FALSE, message=FALSE, warning=FALSE}
@@ -115,7 +122,7 @@ With the summary() function we can get a good first impression on the range of v
 summary(wines)
 ```
 
-The larger difference between Median and Mean for some variables (e.g. Proline) already indicates that the distribution of values for each variable are not necessarily normal. The variables "Magnesium" and "Proline" are have higher values than the others.
+The larger difference between Median and Mean for some variables (e.g. Proline) already indicates that the distribution of values for each variable are not necessarily normal. The variables "Magnesium" and "Proline" also have much higher absolute values than the others.
 \newpage
 
 ## Visualizations
@@ -149,7 +156,7 @@ The plot shows nicely that some values are not correlating much with the others,
 # Modelling
 
 ## Preprocessing
-In order to use the data in the dataframe for methods like knn, we will scale it. After that operation, 
+In order to use the data in the dataframe for methods like knn, we will scale it. This will make sure that e.g. high levels of Proline will not distort measurements for "distance". 
 
 ```{r Scale wines, echo=TRUE}
 #scaling wines, then rebuilding the winery column
@@ -173,7 +180,7 @@ Now we can start training models!
 
 ### KNN
 
-Its time to set a first benchmark - a basic knn model is trained and the resulting outcome is used to make predictions on the test set.
+In order to create a first benchmark - a basic knn model is trained and the resulting outcome is used to make predictions on the test set. Based on some initial trials, a rather broad range of k values was offered for optimization via the tuneGrid parameter.
 
 ```{r Train knn, echo=FALSE}
 # Train a knn model
@@ -195,13 +202,13 @@ cat("Accuracy of the knn model:", cm_knn$overall["Accuracy"])
 
 ```
 
-The knn model is already very good - an accuracy of `r cm_knn$overall["Accuracy"]` is achieved. This is quite a good start and might be difficult to improve.
+The knn model is already very good - an accuracy of `r cm_knn$overall["Accuracy"]` is achieved when predicting the wineries of the test set. This is quite a good start and might be difficult to improve.
 
 \newpage
 
 ### Classification Tree
 
-A classification tree depends on rather simple decisions, leading along a branched structure to come to the classification result. The package "rpart" has been used to optimize such a classification tree.
+A classification tree depends on rather simple decisions, leading along a branched structure to come to the classification result. The package "rpart" has been used to optimize such a classification tree on the given training set.
 
 
 ```{r Classification Tree, echo=FALSE, message=FALSE, warning=FALSE}
@@ -224,14 +231,14 @@ cat("Accuracy of the rpart model:", cm_rpart$overall["Accuracy"])
 
 ```
 
-How does the resulting tree look like?  
+How does the resulting classification tree look like?  
 
 ```{r Display the classification tree, echo=FALSE}
 plot(fit_rpart$finalModel, margin = 0.1, main="Classification tree")
 text(fit_rpart$finalModel, cex = 0.75, pos=3, offset=0)
 ```
 
-The resulting classification tree is surprisingly simple and based on only two predictors - Proline and the OD280/OD315 on diluted wines. However, the accuracy of `r cm_rpart$overall["Accuracy"]` is much worse than the results from the knn approach.  
+The resulting classification tree is surprisingly simple and based on only two predictors - Proline and the OD280/OD315 on diluted wines. However, the accuracy of `r cm_rpart$overall["Accuracy"]` for the predicted wineries is much worse than the results from the knn approach.  
 
 
 \newpage
@@ -265,7 +272,7 @@ cm_rb <- confusionMatrix(prediction_rb, test_set$Winery)
 cat("Accuracy of the Rborist model:", cm_rb$overall["Accuracy"])
 
 ```
-The approach using Rborist provided an accuracy of `r cm_rb$overall["Accuracy"]`, the best so far.
+The approach using Rborist provided an accuracy of `r cm_rb$overall["Accuracy"]` for the prediction of wineries on the test set, the best result so far.
 
 \newpage
 ## Support Vector Machine
@@ -294,7 +301,7 @@ With an accuracy of `r cm_svml$overall["Accuracy"]`, we found another good predi
 
 # Forming an Ensemble
 
-We can now compare the predictions of the three best models (knn, Rborist and svmLinear) and base our prediction on the rounded average of all three to see if there is an improvement.
+We can now combine the predictions of the three best models (knn, Rborist and svmLinear) and create a prediction on the rounded average of all three models to see if there is an improvement.
 
 ```{r Form an ensemble based on average predictions, echo=TRUE}
 #Convert predictions to numbers, calculate the average
@@ -307,7 +314,45 @@ prediction_ensemble <- as.factor(round((
 cm_ensemble <- confusionMatrix(prediction_ensemble, test_set$Winery)
 cat("Accuracy of the Ensemble:", cm_ensemble$overall["Accuracy"])
 ```
-With an ensemble accuracy of `r cm_ensemble$overall["Accuracy"]`, the ensemble is delivering the same accuracy as the model based on the Rborist method. So at least in this case, there is no improvement by combining the predictions
+With an ensemble accuracy of `r cm_ensemble$overall["Accuracy"]`, the ensemble is delivering the same accuracy as the model based on the Rborist method. So at least in this case, there is no improvement by combining the predictions.
 
 
+\newpage
+
+# Results & Summary
+
+## Findings & Outlook
+
+During this project, a promising data set called "Wine" was identified, retrieved and examined. It was then tried to create prediction models for the one categorical variable "Winery".  
+
+In total four different models have been tried on the dataset, leading to accuracy values of 0.8222 to 0.9889 on the test set:  
+
+*   knn, k-nearest neighbours: Accuracy `r cm_knn$overall["Accuracy"]`
+
+*   rpart, a classification tree: Accuracy `r cm_rpart$overall["Accuracy"]`
+
+*   Rborist, a random forest approach: Accuracy `r cm_rb$overall["Accuracy"]`
+
+*   svmLinear, a support vector machine: Accuracy `r cm_svml$overall["Accuracy"]`
+
+The best value of `r cm_rb$overall["Accuracy"]` has been observed with Rborist model. This results reflects one wrong prediction for a test set of 90 observations. So, to answer the initial question:  
+
+*"Yes, we can predict the winery based on the lab analysis with sufficient accuracy!"*.  
+
+A trial to further improve the accuracy by creating an ensemble prediction out of the best three models did not result in further improvement - the same accuracy as with Rborist is observed.  
+
+As it turned out to be rather easy to try further models with the train function and the caret package, I might try more models and search the internet about their approach, tuning options and limitations.
+
+
+## Further findings and comments
+
+*   As the dataset is rather small, at first a larger training set (75%) was used - hoping for better results due to more training. This approach gave surprising high accuracy values up to 1 (depending on the seed used). This indicates that the data can be classified actually pretty well, so the training set was decreased in size to challenge the different methods a bit more.
+
+*   Looking at the one prediction where the ensemble went wrong, it turned out that a different voting mode (e.g. median) would not have changed the result - as all four models predicted the same, wrong result. 
+
+*   It would be interesting to look at larger wine databases, as many parameters that are observed in real life were not included in this data set, e.g. type of grape, type of ground, vintage. At least when adding more wineries, an increased difficulty can be expected.
+
+*   I was surprised how easy it is to access and apply methods that I was not aware of and that I did not fully understand yet. This also includes the risk of errors and mistakes - and makes one feel less like a data scientist and more like a script kiddie.
+
+*   Overall a good exercise, learning about sources of data sets, useful websites (stackoverflow, kaggle) and about how much is achievable in short time if necessary.
 
