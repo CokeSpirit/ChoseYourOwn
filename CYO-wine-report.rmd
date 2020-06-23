@@ -236,9 +236,10 @@ The logical consequence of using a classification tree and the package rpart is 
 ```{r}
 # Train a rborist model
 fit_rb <- train(Winery ~.,
-                   method="Rborist",
-                   tuneGrid = data.frame(predFixed=2, minNode=seq(3,9,1)),
-                   data = train_set)
+                method="Rborist",
+                tuneGrid = data.frame(predFixed=2, minNode=seq(3,9,1)),
+                nTree=100,   
+                data = train_set)
 
 # Output the fit results
 fit_rb
